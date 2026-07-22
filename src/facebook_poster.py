@@ -9,8 +9,20 @@ Image: hum URL bhejte hain (Facebook khud fetch karta hai) - lekin pehle apni ta
 import requests
 import config
 import image_handler
+import token_store
 
 GRAPH = "https://graph.facebook.com/v21.0"
+
+
+def _fb_token():
+    """FB token: pehle Sheet (Tokens tab) se, warna .env se. Badalna aasan ho jata hai."""
+    try:
+        t = token_store.get("FACEBOOK_ACCESS_TOKEN")
+        if t:
+            return t
+    except Exception:
+        pass
+    return config.FACEBOOK_ACCESS_TOKEN
 
 
 def check_token():
@@ -18,12 +30,12 @@ def check_token():
     Page token zinda hai? (L13)
     Return: (ok, message)
     """
-    if not config.FACEBOOK_ACCESS_TOKEN or not config.FACEBOOK_PAGE_ID:
+    if not _fb_token() or not config.FACEBOOK_PAGE_ID:
         return False, "Facebook token/Page ID nahi hai (.env me daalo - SETUP_GUIDE_PHASE4.md)"
     try:
         r = requests.get(
             f"{GRAPH}/{config.FACEBOOK_PAGE_ID}",
-            params={"fields": "name", "access_token": config.FACEBOOK_ACCESS_TOKEN},
+            params={"fields": "name", "access_token": _fb_token()},
             timeout=30,
         )
         if r.status_code == 200:
@@ -47,7 +59,7 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
         parts.append(link)
     message = "\n\n".join(parts)
 
-    token = config.FACEBOOK_ACCESS_TOKEN
+    token = _fb_token()
     page_id = config.FACEBOOK_PAGE_ID
     if not token or not page_id:
         return False, "Facebook token/Page ID missing (.env)", ""

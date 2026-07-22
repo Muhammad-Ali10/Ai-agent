@@ -12,21 +12,95 @@ Token: Instagram Login token (60 din, refresh hota hai). L13: health check.
 Connect karne ke liye ek dafa: python src/instagram_auth.py
 """
 import time
+from datetime import datetime
+import pytz
 import requests
 import config
 import image_handler
+import token_store
 
 GRAPH = "https://graph.instagram.com"
+
+# Instagram token 60 din chalta hai - har itne din baad refresh (taza) karte hain
+# taake kabhi expire na ho (permanent solution)
+REFRESH_EVERY_DAYS = 7
+_current_token = {"value": None}
+
+
+def _today():
+    return datetime.now(pytz.timezone(config.TIMEZONE)).strftime("%Y-%m-%d")
+
+
+def _refresh(token):
+    """Purane token se naya 60-din wala token lo. Return: naya token ya None."""
+    try:
+        r = requests.get(
+            f"{GRAPH}/refresh_access_token",
+            params={"grant_type": "ig_refresh_token", "access_token": token},
+            timeout=30,
+        )
+        if r.status_code == 200:
+            return r.json().get("access_token")
+    except requests.RequestException:
+        pass
+    return None
+
+
+def ensure_token():
+    """
+    Zinda IG token do - purana ho to KHUD refresh karke Sheet me save.
+    Cloud-safe: token Sheet me rehta hai, is liye har run latest use karti hai.
+    """
+    if _current_token["value"]:
+        return _current_token["value"]
+
+    try:
+        stored = token_store.get("INSTAGRAM_LOGIN_TOKEN")
+        updated = token_store.get_updated("INSTAGRAM_LOGIN_TOKEN")
+    except Exception:
+        stored, updated = None, None
+
+    token = stored or config.INSTAGRAM_LOGIN_TOKEN
+    if not token:
+        return None
+
+    # Bootstrap: pehli dafa - Sheet me save kar do
+    if not stored:
+        try:
+            token_store.set("INSTAGRAM_LOGIN_TOKEN", token, _today())
+            updated = _today()
+        except Exception:
+            pass
+
+    # Kitna purana? 7 din+ ho to refresh
+    try:
+        last = datetime.strptime(updated, "%Y-%m-%d").date()
+        age = (datetime.strptime(_today(), "%Y-%m-%d").date() - last).days
+    except (ValueError, TypeError):
+        age = 999
+    if age >= REFRESH_EVERY_DAYS:
+        new = _refresh(token)
+        if new:
+            token = new
+            try:
+                token_store.set("INSTAGRAM_LOGIN_TOKEN", new, _today())
+                print(f"[i] Instagram token refresh ho gaya (agle 60 din ke liye)")
+            except Exception:
+                pass
+
+    _current_token["value"] = token
+    return token
 
 
 def check_token():
     """IG token zinda hai? (L13). Return: (ok, message)"""
-    if not config.INSTAGRAM_LOGIN_TOKEN or not config.INSTAGRAM_USER_ID:
+    token = ensure_token()
+    if not token or not config.INSTAGRAM_USER_ID:
         return False, "Instagram connect nahi hua - chalao: python src/instagram_auth.py"
     try:
         r = requests.get(
             f"{GRAPH}/{config.INSTAGRAM_USER_ID}",
-            params={"fields": "username", "access_token": config.INSTAGRAM_LOGIN_TOKEN},
+            params={"fields": "username", "access_token": token},
             timeout=30,
         )
         if r.status_code == 200:
@@ -51,7 +125,7 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
     parts = [p for p in [content, hashtags] if p]
     caption = "\n\n".join(parts)
 
-    token = config.INSTAGRAM_LOGIN_TOKEN
+    token = ensure_token()
     ig_id = config.INSTAGRAM_USER_ID
     if not token or not ig_id:
         return False, "Instagram connect nahi hua (python src/instagram_auth.py)", ""
