@@ -1,0 +1,14 @@
+# ====== SECRETS - yeh KABHI GitHub pe nahi jayenge ======
+.env
+credentials/
+logs/
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Windows/editor
+Thumbs.db
+.DS_Store

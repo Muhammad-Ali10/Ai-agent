@@ -1,0 +1,96 @@
+"""
+facebook_poster.py - Facebook PAGE pe post karne ka kaam (Meta Graph API se).
+Image + text post. Personal profile pe nahi - sirf Page pe (Meta ka rule).
+
+Token: Page Access Token (long-lived ~60 din). L13 protection: health check hai.
+Image: hum URL bhejte hain (Facebook khud fetch karta hai) - lekin pehle apni taraf
+       se download+check kar lete hain (L5/L12) taake dead/private link pakda jaye.
+"""
+import requests
+import config
+import image_handler
+
+GRAPH = "https://graph.facebook.com/v21.0"
+
+
+def check_token():
+    """
+    Page token zinda hai? (L13)
+    Return: (ok, message)
+    """
+    if not config.FACEBOOK_ACCESS_TOKEN or not config.FACEBOOK_PAGE_ID:
+        return False, "Facebook token/Page ID nahi hai (.env me daalo - SETUP_GUIDE_PHASE4.md)"
+    try:
+        r = requests.get(
+            f"{GRAPH}/{config.FACEBOOK_PAGE_ID}",
+            params={"fields": "name", "access_token": config.FACEBOOK_ACCESS_TOKEN},
+            timeout=30,
+        )
+        if r.status_code == 200:
+            return True, f"Token theek hai (Page: {r.json().get('name', '?')})"
+        if r.status_code in (400, 401):
+            return False, ("Facebook token DEAD/EXPIRE hai (60 din baad hota hai, "
+                           "ya password badla) - naya Page token banao")
+        return False, f"Facebook token check fail: {r.status_code} {r.text[:150]}"
+    except requests.RequestException as e:
+        return False, f"Facebook se raabta nahi (internet?): {e}"
+
+
+def post(title, content, hashtags="", link="", image_link="", board=""):
+    """
+    Facebook Page pe post banata hai.
+    Return: (success, message, post_url)
+    """
+    # Text tayyar karo
+    parts = [p for p in [content, hashtags] if p]
+    if link:
+        parts.append(link)
+    message = "\n\n".join(parts)
+
+    token = config.FACEBOOK_ACCESS_TOKEN
+    page_id = config.FACEBOOK_PAGE_ID
+    if not token or not page_id:
+        return False, "Facebook token/Page ID missing (.env)", ""
+
+    # Image ho to pehle apni taraf se check (dead/private link pakdo - L5/L12)
+    image_url = None
+    if image_link:
+        img_bytes, img_err = image_handler.download_image(image_link)
+        if img_err:
+            return False, f"Image ka masla: {img_err}", ""
+        # FB ko direct-download URL bhejenge (Drive links convert ho jate hain)
+        image_url = image_handler.to_direct_url(image_link)
+
+    # TEST MODE
+    if config.TEST_MODE:
+        print("\n--- [TEST MODE] Facebook Page pe yeh post hota (asli nahi) ---")
+        print(message)
+        if image_url:
+            print(f"[image OK - {len(img_bytes)//1024} KB]")
+        print("--- end ---\n")
+        return True, "TEST MODE - post nahi hua (dry-run)", ""
+
+    try:
+        if image_url:
+            # Photo post: /photos endpoint
+            r = requests.post(
+                f"{GRAPH}/{page_id}/photos",
+                data={"url": image_url, "caption": message, "access_token": token},
+                timeout=60,
+            )
+        else:
+            # Text-only post: /feed endpoint
+            r = requests.post(
+                f"{GRAPH}/{page_id}/feed",
+                data={"message": message, "access_token": token},
+                timeout=60,
+            )
+        if r.status_code == 200:
+            data = r.json()
+            post_id = data.get("post_id") or data.get("id", "")
+            post_url = f"https://www.facebook.com/{post_id}" if post_id else ""
+            return True, "Facebook pe post ho gaya", post_url
+        tag = "PERMANENT" if 400 <= r.status_code < 500 and r.status_code != 429 else ""
+        return False, f"{tag} Facebook error {r.status_code}: {r.text[:200]}".strip(), ""
+    except requests.RequestException as e:
+        return False, f"Facebook exception: {e}", ""

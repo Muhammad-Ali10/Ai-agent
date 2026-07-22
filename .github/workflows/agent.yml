@@ -1,0 +1,38 @@
+name: Social Media Agent
+
+# Kab chale:
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # har 30 minute (free tier me safe)
+  workflow_dispatch: {}       # "Run workflow" button se manually bhi chala sakte ho
+
+# Ek waqt me sirf ek run (double-post se bachao)
+concurrency:
+  group: social-agent
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Code lo
+        uses: actions/checkout@v4
+
+      - name: Python setup
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Libraries install
+        run: pip install -r requirements.txt
+
+      - name: Secrets se files banao (.env + Google key)
+        run: |
+          printf '%s' "${{ secrets.ENV_FILE_B64 }}" | base64 -d > .env
+          mkdir -p credentials
+          printf '%s' "${{ secrets.GOOGLE_KEY_B64 }}" | base64 -d > credentials/service-account.json
+
+      - name: Agent chalao (due posts kar do)
+        run: python src/main.py

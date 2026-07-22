@@ -1,0 +1,9 @@
+# Social Media Posting Agent - Python dependencies
+# Install karne ke liye:  pip install -r requirements.txt
+
+gspread>=6.1.2              # Google Sheets read/write
+google-auth>=2.34.0         # Google authentication (service account)
+requests>=2.32.3            # LinkedIn/other APIs ko call karne ke liye
+python-dotenv>=1.0.1        # .env file se secret keys load karna
+pytz>=2024.1                # Pakistan timezone (PKT) handle karna
+Pillow>=11.3.0              # Images check/convert/compress (Python 3.14 compatible)
