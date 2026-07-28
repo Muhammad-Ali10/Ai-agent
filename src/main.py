@@ -128,6 +128,20 @@ def check_hashtag_repeat(post, posts):
     return ""
 
 
+def clean_text(text):
+    """
+    Copy-paste ki gandagi saaf karo (post me nazar aane se pehle):
+      - shuru/aakhir ke extra space aur line-break
+      - fazool quote (") jo copy karte waqt saath aa jata hai
+    Content jaisa hai waisa hi rehta hai - sirf kinare saaf hote hain.
+    """
+    t = str(text).strip()
+    # Aisa quote jiska jodi-dar nahi (paste ki ghalti) - hata do
+    while t.count('"') % 2 == 1 and (t.endswith('"') or t.startswith('"')):
+        t = t[:-1].strip() if t.endswith('"') else t[1:].strip()
+    return t
+
+
 def do_post(post):
     """Platform ke hisab se post karo. Return: (success, msg, post_url)"""
     platform = str(post.get("Platform", "")).strip()
@@ -135,12 +149,12 @@ def do_post(post):
     if not poster:
         return False, f"'{platform}' support nahi (sirf: {', '.join(POSTERS)})", ""
     return poster.post(
-        title=post.get("Title", ""),
-        content=post.get("Content", ""),
-        hashtags=post.get("Hashtags", ""),
-        link=post.get("Post_Link", ""),
-        image_link=post.get("Image_Link", ""),
-        board=post.get("Board", ""),
+        title=clean_text(post.get("Title", "")),
+        content=clean_text(post.get("Content", "")),
+        hashtags=clean_text(post.get("Hashtags", "")),
+        link=clean_text(post.get("Post_Link", "")),
+        image_link=str(post.get("Image_Link", "")).strip(),
+        board=str(post.get("Board", "")).strip(),
     )
 
 
