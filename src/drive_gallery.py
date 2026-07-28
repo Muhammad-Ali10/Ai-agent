@@ -105,7 +105,11 @@ def sync_sheet(quiet=False):
         if link:
             fid = image_handler._drive_file_id(link) or image_handler.resolve_name(link)
             if fid:
+                # Drive image (link ya naam) - thumbnail format Sheets me achha chalta hai
                 want = f'=IMAGE("{image_handler.thumbnail_url(fid)}")'
+            elif link.lower().startswith(("http://", "https://")):
+                # Website ka seedha link (jaise buongiornoimg.it/...) - waise hi dikhao
+                want = f'=IMAGE("{link}")'
         have = (current[i][0] if i < len(current) and current[i] else "")
         if want and want != have:
             updates.append({"range": f"{prev_letter}{row}", "values": [[want]]})
