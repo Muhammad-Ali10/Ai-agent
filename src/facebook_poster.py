@@ -6,12 +6,27 @@ Token: Page Access Token (long-lived ~60 din). L13 protection: health check hai.
 Image: hum URL bhejte hain (Facebook khud fetch karta hai) - lekin pehle apni taraf
        se download+check kar lete hain (L5/L12) taake dead/private link pakda jaye.
 """
+import re
 import requests
 import config
 import image_handler
 import token_store
 
 GRAPH = "https://graph.facebook.com/v21.0"
+_URL_RE = re.compile(r"https?://[^\s]+")
+
+
+def find_link(content, post_link):
+    """
+    Link card ke liye URL dhoondo:
+      1. Post_Link column (agar bhara ho)
+      2. warna Content me jo pehla URL mile
+    Return: URL ya None
+    """
+    if str(post_link).strip():
+        return str(post_link).strip()
+    m = _URL_RE.search(str(content or ""))
+    return m.group(0).rstrip(".,;)\"'") if m else None
 
 
 def _fb_token():
@@ -64,9 +79,15 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
     if not token or not page_id:
         return False, "Facebook token/Page ID missing (.env)", ""
 
+    # LINK CARD ka faisla: URL mile aur setting on ho to card banega
+    # (card pe click = website khulti hai - traffic ke liye behtar)
+    card_link = find_link(content, link) if config.FACEBOOK_LINK_CARDS else None
+
     # Image ho to pehle apni taraf se check (dead/private link pakdo - L5/L12)
+    # Link card me image page ke og:image se aati hai, isliye tab check ki zaroorat nahi
     image_url = None
-    if image_link:
+    img_bytes = b""
+    if image_link and not card_link:
         img_bytes, img_err = image_handler.download_image(image_link)
         if img_err:
             return False, f"Image ka masla: {img_err}", ""
@@ -76,6 +97,7 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
     # TEST MODE
     if config.TEST_MODE:
         print("\n--- [TEST MODE] Facebook Page pe yeh post hota (asli nahi) ---")
+        print(f"Type: {'LINK CARD -> ' + card_link if card_link else 'PHOTO POST'}")
         print(message)
         if image_url:
             print(f"[image OK - {len(img_bytes)//1024} KB]")
@@ -83,7 +105,14 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
         return True, "TEST MODE - post nahi hua (dry-run)", ""
 
     try:
-        if image_url:
+        if card_link:
+            # Link card: /feed endpoint - FB khud page se image/title uthata hai
+            r = requests.post(
+                f"{GRAPH}/{page_id}/feed",
+                data={"message": message, "link": card_link, "access_token": token},
+                timeout=60,
+            )
+        elif image_url:
             # Photo post: /photos endpoint
             r = requests.post(
                 f"{GRAPH}/{page_id}/photos",

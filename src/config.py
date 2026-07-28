@@ -59,6 +59,11 @@ PINTEREST_API_BASE = (
     else "https://api.pinterest.com/v5"
 )
 
+# ---- Facebook post ka type ----
+# true  = LINK CARD: image pe click karne se website khulti hai (traffic ke liye)
+# false = PHOTO POST: bari image, click pe photo khulta hai (reach ke liye)
+FACEBOOK_LINK_CARDS = os.getenv("FACEBOOK_LINK_CARDS", "true").lower() == "true"
+
 # ---- Facebook ----
 FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "")
 FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", "")
