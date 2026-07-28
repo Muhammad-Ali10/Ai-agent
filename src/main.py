@@ -25,6 +25,7 @@ import pinterest_poster
 import facebook_poster
 import instagram_poster
 import notifier
+from text_clean import clean_text
 
 # Har platform ka poster module (naya platform add karna ho to yahan add karo)
 POSTERS = {
@@ -126,20 +127,6 @@ def check_hashtag_repeat(post, posts):
         return (f"Pichli {same} posts pe bhi BILKUL yehi hashtags the - "
                 "thoda badlo warna shadowban ka risk hai")
     return ""
-
-
-def clean_text(text):
-    """
-    Copy-paste ki gandagi saaf karo (post me nazar aane se pehle):
-      - shuru/aakhir ke extra space aur line-break
-      - fazool quote (") jo copy karte waqt saath aa jata hai
-    Content jaisa hai waisa hi rehta hai - sirf kinare saaf hote hain.
-    """
-    t = str(text).strip()
-    # Aisa quote jiska jodi-dar nahi (paste ki ghalti) - hata do
-    while t.count('"') % 2 == 1 and (t.endswith('"') or t.startswith('"')):
-        t = t[:-1].strip() if t.endswith('"') else t[1:].strip()
-    return t
 
 
 def do_post(post):

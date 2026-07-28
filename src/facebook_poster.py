@@ -23,10 +23,11 @@ def find_link(content, post_link):
       2. warna Content me jo pehla URL mile
     Return: URL ya None
     """
+    from text_clean import clean_url
     if str(post_link).strip():
-        return str(post_link).strip()
+        return clean_url(str(post_link).strip())
     m = _URL_RE.search(str(content or ""))
-    return m.group(0).rstrip(".,;)\"'") if m else None
+    return clean_url(m.group(0).rstrip(".,;)\"'")) if m else None
 
 
 def _fb_token():
