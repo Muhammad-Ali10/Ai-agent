@@ -75,22 +75,8 @@ def sync_sheet(quiet=False):
     img_col = headers.index("Image_Link")      # 0-based
     prev_col = headers.index("Preview")
 
-    names = sorted(idx.keys())
-
-    # ---- 1. Image_Link pe dropdown (strict=False: purane poore links bhi chalte rahenge)
-    ws.spreadsheet.batch_update({"requests": [{
-        "setDataValidation": {
-            "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": LAST_ROW,
-                      "startColumnIndex": img_col, "endColumnIndex": img_col + 1},
-            "rule": {
-                "condition": {"type": "ONE_OF_LIST",
-                              "values": [{"userEnteredValue": n} for n in names]},
-                "showCustomUi": True, "strict": False,
-            },
-        }
-    }]})
-
-    # ---- 2. Preview: har row ka image khud bhar do
+    # ---- Preview: har row ka image khud bhar do
+    # (Image_Link pe koi dropdown NAHI - user seedha website ka link paste karta hai)
     col_letter = chr(65 + img_col)
     prev_letter = chr(65 + prev_col)
     links = ws.col_values(img_col + 1)[1:]     # header chhod ke
