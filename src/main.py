@@ -267,6 +267,7 @@ def run():
     print("=" * 55)
 
     summary = {"posted": 0, "failed": 0, "invalid": 0, "expired": 0}
+    run_started = time.time()
 
     # Setup check
     problems = config.check_setup()
@@ -345,6 +346,14 @@ def run():
             if status != "pending":
                 continue
 
+            # Platform ka naam hi ghalat hai? Sheet me batao (chup-chaap skip mat karo)
+            if platform not in POSTERS:
+                msg = f"Platform '{platform}' ghalat hai - sirf: {', '.join(POSTERS)}"
+                print(f"[!] Row {row}: {msg}")
+                google_sheet.update_status(row, "invalid", error=msg)
+                summary["invalid"] += 1
+                continue
+
             # Is platform ka token kharab hai to skip (baaki platforms chalte rahenge)
             if not token_ok.get(platform, False):
                 continue
@@ -354,6 +363,18 @@ def run():
             if daily_count.get(platform, 0) >= limit:
                 print(f"[!] Row {row}: {platform} ki aaj ki limit ({limit}/din) puri - kal hogi")
                 continue
+
+            # Ye post abhi due hai ya nahi - GAP se PEHLE check karo, warna
+            # future wali rows pe bhi bekaar sleep hota hai (run timeout ho jata hai)
+            sched, sched_err = parse_schedule(post)
+            if not sched_err and now < sched:
+                continue  # aage ki post - abhi kuch nahi karna
+
+            # Run ka waqt khatam? Baaki posts agle run pe (har 10 min chalta hai)
+            elapsed = (time.time() - run_started) / 60
+            if elapsed > config.RUN_BUDGET_MINUTES:
+                print(f"[i] {int(elapsed)} min ho gaye - baaki posts agle run pe hongi")
+                break
 
             # Posts ke beech gap (pehli post ke ilawa)
             if posted_this_run > 0 and not config.TEST_MODE:

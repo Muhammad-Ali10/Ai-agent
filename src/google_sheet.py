@@ -130,18 +130,32 @@ def _reports_tab():
 
 def write_daily_report(today_str, total, posted, failed, details, run_time):
     """
-    Aaj ki summary Reports tab me likho. Aaj ki row pehle se ho to update karo,
-    warna nayi row add karo.
+    Aaj ki summary Reports tab me likho.
+
+    Cloud din me kai dafa chalta hai, is liye ginti JODTE hain (overwrite nahi) -
+    warna report sirf aakhri run ki ginti dikhati hai, poore din ki nahi.
     """
     try:
         ws = _reports_tab()
         dates = ws.col_values(1)  # Date column
-        row_values = [today_str, total, posted, failed, details, run_time]
         if today_str in dates:
             row_num = dates.index(today_str) + 1
-            ws.update(f"A{row_num}:F{row_num}", [row_values])
+            old = ws.row_values(row_num)
+
+            def num(i):
+                try:
+                    return int(str(old[i]).strip())
+                except (IndexError, ValueError):
+                    return 0
+
+            total += num(1)
+            posted += num(2)
+            failed += num(3)
+            details = f"Posted: {posted}, Failed: {failed} (din bhar ka)"
+            ws.update(values=[[today_str, total, posted, failed, details, run_time]],
+                      range_name=f"A{row_num}:F{row_num}")
         else:
-            ws.append_row(row_values)
+            ws.append_row([today_str, total, posted, failed, details, run_time])
         return True, ""
     except Exception as e:
         return False, f"Report likhne me masla: {e}"

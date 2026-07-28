@@ -115,9 +115,14 @@ LATE_GRACE_MINUTES = 30
 # ---- Images ----
 MAX_IMAGE_MB = 8  # is se badi image auto-compress hogi
 
-# ---- Retry (Phase 2): fail hone pe kitni dafa aur kitne gap se ----
+# ---- Retry: fail hone pe kitni dafa aur kitne gap se ----
 RETRY_COUNT = 3
-RETRY_GAP_MINUTES = 5
+RETRY_GAP_MINUTES = 2   # chhota gap - cloud run ka waqt zaya na ho
+
+# ---- Ek run kitni der chal sakta hai ----
+# Is se zyada ho jaye to baaki posts agle run pe (agla run 10 min me aata hai).
+# Cloud (GitHub Actions) ka timeout 30 min hai - us se kaafi neeche rakhte hain.
+RUN_BUDGET_MINUTES = 12
 
 # ---- Scheduler (Phase 2): har kitne minute baad Sheet check karni hai ----
 CHECK_INTERVAL_MINUTES = 5

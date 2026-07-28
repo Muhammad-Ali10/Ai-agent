@@ -156,8 +156,20 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
             return False, f"{tag} IG container fail {r1.status_code}: {r1.text[:200]}".strip(), ""
         container_id = r1.json()["id"]
 
-        # IG ko image process karne ka thoda waqt do
-        time.sleep(5)
+        # IG image ko background me process karta hai. Fixed wait ke bajaye
+        # status poochte rahenge - badi image ho to bhi publish fail na ho.
+        for _ in range(20):  # max ~60 second
+            time.sleep(3)
+            st = requests.get(f"{GRAPH}/{container_id}",
+                              params={"fields": "status_code", "access_token": token},
+                              timeout=30)
+            code = st.json().get("status_code", "") if st.status_code == 200 else ""
+            if code == "FINISHED":
+                break
+            if code == "ERROR":
+                return False, "PERMANENT IG image process nahi kar saka (format/size ka masla?)", ""
+        else:
+            return False, "IG image abhi tak process ho rahi thi (60s) - agli dafa koshish", ""
 
         # Step 2: publish
         r2 = requests.post(

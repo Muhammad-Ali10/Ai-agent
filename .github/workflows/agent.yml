@@ -14,7 +14,7 @@ concurrency:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30   # agent khud 12 min ka budget rakhta hai - ye safety margin hai
     steps:
       - name: Code lo
         uses: actions/checkout@v4
