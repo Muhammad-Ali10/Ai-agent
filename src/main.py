@@ -277,6 +277,14 @@ def run():
             notifier.alert_agent_problem(" | ".join(structure_problems), f"{now_pkt():%H:%M}")
             return summary
 
+        # Sheet ko aasan rakho: Image_Link ka dropdown + Preview images
+        # (formula mit jaye ya nayi image aaye to khud theek ho jata hai)
+        try:
+            import drive_gallery
+            drive_gallery.sync_sheet(quiet=True)
+        except Exception as e:
+            print(f"[!] Sheet sync skip (posting phir bhi chalegi): {str(e)[:80]}")
+
         posts = google_sheet.get_all_posts()
         now = now_pkt()
         today_str = f"{now:%Y-%m-%d}"

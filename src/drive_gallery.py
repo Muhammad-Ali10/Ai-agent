@@ -46,6 +46,78 @@ def list_images():
     return images
 
 
+LAST_ROW = 300
+
+
+def sync_sheet(quiet=False):
+    """
+    Posts tab ko "aasan" banata hai (har agent run pe khud chalta hai):
+      1. Image_Link column me DROPDOWN - Drive folder ki saari image names
+         (user ko link copy karne ki zaroorat nahi - bas select karo)
+      2. Preview column me image - agent khud bharta hai (formula mit jaye
+         to bhi wapas aa jata hai - self-healing)
+
+    Nakaam ho to chup-chaap chhod deta hai - posting kabhi nahi rukti.
+    """
+    import image_handler
+    import google_sheet
+
+    idx = image_handler.drive_index(refresh=True)
+    if not idx:
+        if not quiet:
+            print("[!] Drive folder me koi image nahi mili (ya access nahi).")
+        return
+
+    ws = google_sheet._connect()
+    headers = [h.strip() for h in ws.row_values(1)]
+    if "Image_Link" not in headers or "Preview" not in headers:
+        return
+    img_col = headers.index("Image_Link")      # 0-based
+    prev_col = headers.index("Preview")
+
+    names = sorted(idx.keys())
+
+    # ---- 1. Image_Link pe dropdown (strict=False: purane poore links bhi chalte rahenge)
+    ws.spreadsheet.batch_update({"requests": [{
+        "setDataValidation": {
+            "range": {"sheetId": ws.id, "startRowIndex": 1, "endRowIndex": LAST_ROW,
+                      "startColumnIndex": img_col, "endColumnIndex": img_col + 1},
+            "rule": {
+                "condition": {"type": "ONE_OF_LIST",
+                              "values": [{"userEnteredValue": n} for n in names]},
+                "showCustomUi": True, "strict": False,
+            },
+        }
+    }]})
+
+    # ---- 2. Preview: har row ka image khud bhar do
+    col_letter = chr(65 + img_col)
+    prev_letter = chr(65 + prev_col)
+    links = ws.col_values(img_col + 1)[1:]     # header chhod ke
+    current = ws.get(f"{prev_letter}2:{prev_letter}{max(len(links) + 1, 2)}",
+                     value_render_option="FORMULA")
+
+    updates, filled = [], 0
+    for i, link in enumerate(links):
+        link = str(link).strip()
+        row = i + 2
+        want = ""
+        if link:
+            fid = image_handler._drive_file_id(link) or image_handler.resolve_name(link)
+            if fid:
+                want = f'=IMAGE("{image_handler.thumbnail_url(fid)}")'
+        have = (current[i][0] if i < len(current) and current[i] else "")
+        if want and want != have:
+            updates.append({"range": f"{prev_letter}{row}", "values": [[want]]})
+            filled += 1
+
+    if updates:
+        ws.batch_update(updates, value_input_option="USER_ENTERED")
+
+    if not quiet:
+        print(f"[OK] Dropdown me {len(names)} images | Preview me {filled} row bhare")
+
+
 def main():
     if not config.DRIVE_FOLDER_ID:
         print("[X] .env me DRIVE_FOLDER_ID nahi hai.")
@@ -94,8 +166,13 @@ def main():
     ]})
 
     print(f"\n[OK] 'Gallery' tab tayyar - {len(images)} images preview + link ke saath.")
-    print("     Sheet me 'Gallery' tab kholo, jo image chahiye uska Link copy karke")
-    print("     post row ke Image_Link me daal do.")
+
+    # Posts tab bhi aasan banao (dropdown + preview)
+    print("\nPosts tab me dropdown aur preview laga raha hoon...")
+    try:
+        sync_sheet()
+    except Exception as e:
+        print(f"[!] Sheet sync me masla: {e}")
     if not images:
         print("\n[!] Folder abhi khali hai - pehle Drive folder me images upload karo,")
         print("    phir yeh dubara chalao.")
