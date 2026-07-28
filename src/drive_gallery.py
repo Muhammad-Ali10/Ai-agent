@@ -105,7 +105,7 @@ def sync_sheet(quiet=False):
         ws.batch_update(updates, value_input_option="USER_ENTERED")
 
     if not quiet:
-        print(f"[OK] Dropdown me {len(names)} images | Preview me {filled} row bhare")
+        print(f"[OK] Preview me {filled} row bhare")
 
 
 def main():
