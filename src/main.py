@@ -324,7 +324,13 @@ def run():
             for pf in config.DAILY_LIMITS
         }
 
-        for post in posts:
+        # Posts ko WAQT ke hisab se tarteeb do (Sheet me upar-neeche jahan bhi hon).
+        # Warna 10:00 wali row upar hone ki wajah se 9:40 wali se pehle chali jati.
+        def _by_time(p):
+            sched, err = parse_schedule(p)
+            return (sched is None, sched or now)
+
+        for post in sorted(posts, key=_by_time):
             status = str(post.get("Status", "")).strip().lower()
             platform = str(post.get("Platform", "")).strip()
             row = post["_row_number"]
@@ -345,10 +351,16 @@ def run():
             if not token_ok.get(platform, False):
                 continue
 
-            # Daily limit check (hard-coded - ban protection)
+            # Daily limit check (hard-coded - ban protection).
+            # Sheet me BHI likhte hain, warna user ko pata hi nahi chalta ke
+            # post kyun nahi hui (cloud ka console wo nahi dekhta).
             limit = config.DAILY_LIMITS.get(platform, 2)
             if daily_count.get(platform, 0) >= limit:
-                print(f"[!] Row {row}: {platform} ki aaj ki limit ({limit}/din) puri - kal hogi")
+                note = (f"Aaj {platform} ki limit ({limit}/din) puri ho gayi - "
+                        f"yeh post kal hogi (ya date badal do)")
+                print(f"[!] Row {row}: {note}")
+                if str(post.get("Error", "")).strip() != note:
+                    google_sheet.update_status(row, "pending", error=note)
                 continue
 
             # Ye post abhi due hai ya nahi - GAP se PEHLE check karo, warna

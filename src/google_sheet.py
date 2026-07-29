@@ -96,6 +96,9 @@ def update_status(row_number, status, posted_at="", post_url="", error=""):
         sheet.update_cell(row_number, _col_number("Post_URL"), post_url)
     if error:
         sheet.update_cell(row_number, _col_number("Error"), error)
+    elif status == "posted":
+        # Post ho gayi to purana error/note hata do (warna confusion hoti hai)
+        sheet.update_cell(row_number, _col_number("Error"), "")
 
 
 def count_posted_today(posts, platform, today_str):
