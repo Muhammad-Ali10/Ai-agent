@@ -60,9 +60,11 @@ PINTEREST_API_BASE = (
 )
 
 # ---- Facebook post ka type ----
-# true  = LINK CARD: image pe click karne se website khulti hai (traffic ke liye)
-# false = PHOTO POST: bari image, click pe photo khulta hai (reach ke liye)
-FACEBOOK_LINK_CARDS = os.getenv("FACEBOOK_LINK_CARDS", "true").lower() == "true"
+# false = PHOTO POST (default): Image_Link wali ASLI image post hoti hai,
+#         image pe koi link nahi (click karne se photo khulta hai)
+# true  = LINK CARD: image website ke og:image se aati hai (Image_Link se NAHI)
+#         aur image pe click = website khulti hai
+FACEBOOK_LINK_CARDS = os.getenv("FACEBOOK_LINK_CARDS", "false").lower() == "true"
 
 # ---- Facebook ----
 FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", "")
