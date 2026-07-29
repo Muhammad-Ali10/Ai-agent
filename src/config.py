@@ -92,8 +92,8 @@ TEST_MODE = os.getenv("TEST_MODE", "true").lower() == "true"
 # ---- Daily limits (PLAN.md me user ke decide kiye hue - ban se bachne ke liye) ----
 DAILY_LIMITS = {
     "Pinterest": 10,
-    "Facebook": 2,
-    "Instagram": 2,
+    "Facebook": 4,    # 29 July: 2 se 4 kiya (account jam gaya, posts theek ja rahi hain)
+    "Instagram": 4,
 }
 
 # Do posts ke beech kam-az-kam itna gap (minutes) - spam signal se bachao
