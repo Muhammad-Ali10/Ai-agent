@@ -69,9 +69,10 @@ def post(title, content, hashtags="", link="", image_link="", board=""):
     Facebook Page pe post banata hai.
     Return: (success, message, post_url)
     """
-    # Text tayyar karo
+    # Text tayyar karo. Post_Link ka URL agar content me PEHLE SE hai to
+    # dubara nahi jodte - warna caption me wahi link do dafa nazar aata hai.
     parts = [p for p in [content, hashtags] if p]
-    if link:
+    if link and str(link).strip() not in str(content):
         parts.append(link)
     message = "\n\n".join(parts)
 

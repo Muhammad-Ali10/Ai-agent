@@ -108,6 +108,28 @@ def release_lock():
         pass
 
 
+def already_posted(post, posts):
+    """
+    Yehi image kisi aur row me PEHLE HI post ho chuki hai? (usi platform pe)
+
+    Kyun: agar galti se kisi posted row ka Status wapas 'pending' ho jaye
+    (paste, ya kisi tool se), to wo dobara post ho jati hai - duplicate.
+    Yeh check us se bachata hai.
+    Return: us row ka number (agar mila) warna None
+    """
+    img = str(post.get("Image_Link", "")).strip()
+    if not img:
+        return None
+    platform = str(post.get("Platform", "")).strip()
+    for p in posts:
+        if (p["_row_number"] != post["_row_number"]
+                and str(p.get("Platform", "")).strip() == platform
+                and str(p.get("Image_Link", "")).strip() == img
+                and str(p.get("Status", "")).strip().lower() == "posted"):
+            return p["_row_number"]
+    return None
+
+
 def check_hashtag_repeat(post, posts):
     """
     L19: pichli posts me bilkul wahi hashtags to nahi? (shadowban se bachao)
@@ -205,6 +227,15 @@ def process_post(post, now, posts):
         print(f"[!] Row {row}: {msg} -> expired")
         google_sheet.update_status(row, "expired", error=msg)
         return "expired", msg
+
+    # --- Duplicate guard: yehi image pehle ja chuki hai? (L4 ka doosra pehra) ---
+    dup_row = already_posted(post, posts)
+    if dup_row:
+        msg = (f"Yehi image row {dup_row} se pehle hi post ho chuki hai - "
+               f"dobara nahi bheji (duplicate se bachao)")
+        print(f"[!] Row {row}: {msg}")
+        google_sheet.update_status(row, "posted", error=msg)
+        return "skipped", msg
 
     # --- Content validation (Layer 2) ---
     problems = validator.validate_post(post)
