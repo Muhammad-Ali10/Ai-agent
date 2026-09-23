@@ -81,6 +81,11 @@ for i, slug in enumerate(slugs, 1):
         u = re.sub(r"-\d+x\d+(?=\.\w+$)", "", u)     # thumbnail -> asli
         if u in seen or any(s in u.rsplit("/", 1)[-1] for s in SKIP_IMG):
             continue
+        # WordPress asli images /uploads/YYYY/MM/ me rakhta hai. Jin URLs me
+        # tareekh ka folder nahi (jaise /uploads/buon-lunedi-1.webp) wo page ke
+        # placeholder hote hain aur 404 dete hain - unhe shuru me hi chhod do.
+        if not re.search(r"/uploads/20\d\d/\d\d/", u):
+            continue
         seen.add(u)
         imgs.append(u)
 
