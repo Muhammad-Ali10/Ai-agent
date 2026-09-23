@@ -4,11 +4,15 @@ Chalao:  python tools\build_plan.py
 
 Natija: tools\new_plan.json  (phir `python tools\push_plan.py` se Sheet me)
 
-HAR DIN 4 POSTS:
+HAR DIN 8 POSTS (4 Facebook + 4 Instagram):
   08:00 FB  -> us din ka page (Buon Lunedi) - agar us page ki taza image bachi ho
-  08:30 IG  -> theme / event page
-  09:00 FB  -> theme / event page
-  09:30 IG  -> us din ka page - agar image bachi ho
+  08:30 IG  -> us din ka page - agar image bachi ho
+  09:00 FB  |
+  09:30 IG  |
+  10:00 FB  |-> theme / event / mausam page
+  10:30 IG  |
+  11:00 FB  |
+  11:30 IG  |
 
 Din wale pages ki images kam hain (Sabato 0, Mercoledi 2), is liye jahan
 image na ho wahan theme/event wali post chali jati hai - plan rukta nahi.
@@ -32,8 +36,20 @@ import google_sheet  # noqa: E402
 # ------------------------------------------------------------------ settings
 START = date(2026, 9, 29)
 END = date(2026, 12, 20)        # Natale ka page nahi hai -> 21 Dec se aage baad me
-SLOT_TIME = {("Facebook", 1): "8:00 am", ("Instagram", 1): "8:30 am",
-             ("Facebook", 2): "9:00 am", ("Instagram", 2): "9:30 am"}
+                                # (images pehle khatam ho jayein to plan wahin ruk jata hai)
+
+# (platform, waqt, kism) - "day" = us din ka page, "theme" = theme/event/mausam
+# Pehle do slots subah ke behtareen waqt pe hain, wahan din wali post jati hai.
+SLOTS = [
+    ("Facebook", "8:00 am", "day"),
+    ("Instagram", "8:30 am", "day"),
+    ("Facebook", "9:00 am", "theme"),
+    ("Instagram", "9:30 am", "theme"),
+    ("Facebook", "10:00 am", "day"),      # din wali images bachi hon to yahan
+    ("Instagram", "10:30 am", "day"),     # warna theme chala jayega
+    ("Facebook", "11:00 am", "theme"),
+    ("Instagram", "11:30 am", "theme"),
+]
 
 # Har page ka naam + uske apne hashtags
 META = {
@@ -104,6 +120,17 @@ NO_DESC_IG = [
     "{c} — nuova immagine appena aggiunta 💛",
     "{c} — un piccolo pensiero per iniziare 💛",
 ]
+# Din wali posts ke liye bhi (Instagram pe "Buon Lunedi! ..." ke baad)
+NO_DESC_DAY = [
+    "Buona giornata a tutti 💛",
+    "Che sia una giornata serena 💛",
+    "Un sorriso per iniziare 💛",
+    "Nuova immagine da scaricare e condividere 💛",
+    "Un pensiero gentile per te 💛",
+    "Buon risveglio a tutti 💛",
+    "Che sia una bella giornata 💛",
+    "Un augurio speciale per oggi 💛",
+]
 # Har (platform, category) ka apna counter - warna ek hi variant dohra jata hai
 _no_desc_n = defaultdict(int)
 
@@ -115,8 +142,12 @@ EVENTS = [
 # MAUSAM: in mahino me theme rotation me zyada aate hain
 SEASON = {10: "buongiorno-autunno", 11: "buongiorno-autunno", 12: "buongiorno-inverno"}
 
-# In pages ko aam rotation se bahar rakho (mausam/event ke liye mehfooz)
-OUT_OF_ROTATION = {"buongiorno-ferragosto", "buongiorno-estate", "buongiorno-mamma",
+# In pages ko aam rotation se bahar rakho.
+# Ferragosto (15 agosto) aur Estate ki images khazaan/sardi me ghalat lagengi -
+# is liye wo is plan me bilkul use nahi hongi.
+# Mamma ko rotation me rakha hai: "buongiorno mamma" aam pyar wali category hai,
+# sirf Festa della Mamma ke din ki nahi.
+OUT_OF_ROTATION = {"buongiorno-ferragosto", "buongiorno-estate",
                    "buongiorno-halloween", "buongiorno-festa-dei-nonni",
                    "buongiorno-autunno", "buongiorno-inverno"}
 
@@ -149,15 +180,29 @@ def take(slug):
     return None
 
 
-# ---- Din wali images ko poore plan me BARABAR phailao ----
-# (warna Lunedi ki 46 images October me hi khatam ho jayengi)
+# ---- Plan kitna lamba ban sakta hai? ----
+# Jo images asal me use ho sakti hain (rotation + din + event/mausam) unhe
+# slots se taqseem karo. Agar poore END tak nahi pohnchta to plan pehle khatam
+# hoga - aur images ko UTNE hi dino pe phailana chahiye, warna aakhir me
+# Lunedi ki 20 images bach jati hain jo kabhi use hi nahi hotin.
+usable = sum(len(stock[s]) for s in stock if s not in {"buongiorno-ferragosto",
+                                                       "buongiorno-estate"})
+horizon = min((END - START).days + 1, max(1, usable // len(SLOTS)))
+LAST = START + timedelta(days=horizon - 1)
+print(f"Taza images (kaam ki): {usable} | {len(SLOTS)} slots/din "
+      f"-> plan ~{horizon} din ({START} se {LAST})\n")
+
+# ---- Din wali images ko plan ki POORI lambai me barabar phailao ----
 day_budget = {}
 for wd, slug in DAY_PAGE.items():
-    occurrences = sum(1 for i in range((END - START).days + 1)
+    occurrences = sum(1 for i in range(horizon)
                       if (START + timedelta(days=i)).weekday() == wd)
     have = len(stock[slug])
-    day_budget[wd] = [0] * occurrences
-    for k in range(min(have, occurrences * 2)):      # har din max 2
+    # Har din max 4 din-wali posts. Lunedi pe 46 images hain - agar 2 ki hadd
+    # rakhein to aadhi kabhi use hi nahi hongi; Sabato pe 0 hain to us din
+    # koi din-wali post nahi jayegi (theme bhar dega).
+    day_budget[wd] = [0] * max(1, occurrences)
+    for k in range(min(have, occurrences * 4)):
         day_budget[wd][k % occurrences] += 1
 seen_wd = Counter()
 
@@ -165,7 +210,7 @@ seen_wd = Counter()
 # Warna Autunno ki saari 16 images October me khatam ho jati hain aur
 # November me khazaan ki ek bhi post nahi jati.
 season_days = defaultdict(list)
-for i in range((END - START).days + 1):
+for i in range(horizon):
     d = START + timedelta(days=i)
     if d.month in SEASON:
         season_days[SEASON[d.month]].append(d)
@@ -208,7 +253,7 @@ def make(slug, img, platform):
             opening = (f"{label}! ☀️ {desc} 💛" if is_day
                        else f"Buongiorno! ☀️ {desc} — {label.lower()} 💛")
         elif is_day:
-            opening = f"{label}! ☀️ Buona giornata a tutti 💛"
+            opening = f"{label}! ☀️ " + NO_DESC_DAY[k % len(NO_DESC_DAY)]
         else:
             opening = "Buongiorno! ☀️ " + NO_DESC_IG[
                 k % len(NO_DESC_IG)].format(c=label)
@@ -230,7 +275,7 @@ def make(slug, img, platform):
 plan, theme_i = [], 0
 short = defaultdict(int)
 
-for i in range((END - START).days + 1):
+for i in range(horizon):
     d = START + timedelta(days=i)
     wd = d.weekday()
     day_slug = DAY_PAGE[wd]
@@ -241,14 +286,12 @@ for i in range((END - START).days + 1):
 
     # aaj koi event chal raha hai?
     event = next((s for s, a, b in EVENTS if a <= d <= b), None)
-    # event ke asal din 4/4 posts theek hain, us se pehle 3 tak
-    event_cap = 4 if any(d == b for _, _, b in EVENTS) else 3
+    # event ke ASAL din poore 6 theme slots event ke, us se pehle 4 tak
+    event_cap = 6 if any(d == b for _, _, b in EVENTS) else 4
     today_count = Counter()          # ek page din me 2 se zyada nahi (event ke ilawa)
 
-    for platform, slot in (("Facebook", 1), ("Instagram", 1),
-                           ("Facebook", 2), ("Instagram", 2)):
-        # slot 1-FB aur 2-IG = din wale slots
-        is_day_slot = (platform, slot) in (("Facebook", 1), ("Instagram", 2))
+    for platform, t, kind in SLOTS:
+        is_day_slot = kind == "day"
 
         img = slug = None
         if is_day_slot and quota > 0:
@@ -271,13 +314,30 @@ for i in range((END - START).days + 1):
             for cand in order:
                 # Mausam ka page din me sirf 1 dafa - warna 16 images 8 din me
                 # khatam ho jati hain aur baqi mausam khali reh jata hai.
-                cap = event_cap if cand == event else (1 if cand == season else 2)
+                # 8 slots hain, is liye ek page se 3 tak theek hai (phir bhi
+                # din me kam az kam 3 alag categories aati hain).
+                cap = event_cap if cand == event else (1 if cand == season else 3)
                 if today_count[cand] >= cap:
                     continue                  # ek hi category din bhar nahi
                 img = take(cand)
                 if img:
                     slug = cand
                     break
+            # Sab pages apni cap tak bhar gaye? Cap thoda narm kar do - warna
+            # images bachi reh jati hain aur plan waqt se pehle ruk jata hai.
+            if img is None:
+                for cand in order:
+                    if today_count[cand] >= 4:
+                        continue
+                    img = take(cand)
+                    if img:
+                        slug = cand
+                        break
+            # Ab bhi kuch nahi? Din wale page se hi le lo (budget se zyada)
+            if img is None:
+                img = take(day_slug)
+                if img:
+                    slug = day_slug
             theme_i += 1
 
         if img is None:
@@ -287,7 +347,7 @@ for i in range((END - START).days + 1):
         today_count[slug] += 1
         row = make(slug, img, platform)
         row["Date"] = d.strftime("%Y-%m-%d")
-        row["Time"] = SLOT_TIME[(platform, slot)]
+        row["Time"] = t
         plan.append(row)
     else:
         continue
